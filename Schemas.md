@@ -1,4 +1,4 @@
-\*Note the "?" next to a field indicates that field is optional
+_Note the "?" next to a field indicates that field is optional_
 
 ## User Schema
 
