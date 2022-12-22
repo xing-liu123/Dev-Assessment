@@ -1,6 +1,6 @@
 ## Introduction
 
-Hello, thank you for showing your interest in Bits of Good! This semester, we are focusing our recruitment on the practical skills of developers through this backend-focused assessment! We hope you enjoy the task and please file a GitHub issue on the repository if you have any questions or if any part is ambiguous!
+Hello, thank you for showing your interest in Bits of Good! This semester, we are focusing our recruitment on the practical skills of developers through this assessment! We hope you enjoy the task and please file a GitHub issue on the repository if you have any questions or if any part is ambiguous!
 
 While this assessment comes in various levels (Setup --> Expert), we do not expect you to be able to complete all of the levels; we just want to see your thought process and how you write and organize code. Additionally, we have provided a sample Express.js boilerplate but feel free to use a different framework or customize this repository to your needs (i.e. install any extra libraries, etc. you need). Our only requirement is that you use Javascript/Typescript with a NoSQL database (i.e. Firestore, MongoDB, etc.).
 
