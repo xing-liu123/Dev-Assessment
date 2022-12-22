@@ -6,6 +6,10 @@ While this assessment comes in various levels (Setup --> Expert), we do not expe
 
 Because this assessment is very open ended, there are many ways to do the tasks so for most of the tasks, there is no right or wrong way to do things.
 
+To submit your project, please commit your code to Github (preferred) or another version control platform and share a link to your repository in our application.
+
+**_Once again, we would like to emphasize this take home assessment is designed to be challenging and we do not expect you to be able to do the entire thing._**
+
 ## Context
 
 For this take home assessment, we are building an animal training management app! Our job for the app, is to build out backend functionality to manage different users, animals, and training logs. Schemas for these data models can be found in `Schemas.md`
@@ -53,7 +57,7 @@ If you would like to use our boilerplate, you can easily get started by:
   - Response:
     - **Status 200 (Success):** If we are able to retrieve the users/animals/training logs
     - **Status 500**: For any other errors
-  - **Note:** These endpoints must implement ObjectId-based pagination
+  - **Note:** These endpoints must implement pagination -- ideally using the document IDs or some other property that has natural ordering (i.e. take a look at approach 2 in this [article](https://www.codementor.io/@arpitbhayani/fast-and-efficient-pagination-in-mongodb-9095flbqr) if you are using MongoDB)
 
 ## Level 3: Hard
 
