@@ -12,6 +12,10 @@ app.get('/', (req, res) => {
             "Version": 2})
 })
 
+app.get("/api/health", (req, res) => {
+    res.json({"healthy:": true})
+})
+
 app.listen(APP_PORT, () => {
     console.log(`api listening at http://localhost:${APP_PORT}`)
 })
