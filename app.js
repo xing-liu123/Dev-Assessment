@@ -183,6 +183,23 @@ app.get("/api/admin/users", async (req, res) => {
   }
 });
 
+app.get("/api/admin/animals", async (req, res) => {
+  try {
+    const animalsCollection = collection(db, "animals");
+    const animalDocs = await getDocs(animalsCollection);
+
+    const animals = animalDocs.docs.map((doc) => ({
+      _id: doc.id,
+      ...doc.data(),
+    }));
+
+    res.status(200).json(animals);
+  } catch (error) {
+    console.error("ERROR:", error);
+    res.status(500).json({ message: "Failed to fetch animals" });
+  }
+});
+
 app.listen(APP_PORT, () => {
   console.log(`api listening at http://localhost:${APP_PORT}`);
 });
