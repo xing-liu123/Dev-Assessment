@@ -79,7 +79,7 @@ app.post("/api/animal", async (req, res) => {
     return res.status(400).json({ message: "Invalid or missing owner ID." });
   }
 
-  const dateObject = new Date(dateOfBirth)
+  const dateObject = new Date(dateOfBirth);
 
   if (profilePicture !== undefined && typeof profilePicture !== "string") {
     return res.status(400).json({ message: "Invalid profile picture URL." });
@@ -97,6 +97,53 @@ app.post("/api/animal", async (req, res) => {
   } catch (error) {
     console.error("Error: ", error);
     res.status(500).json({ message: "Failed to create animal." });
+  }
+});
+
+app.post("/api/training", async (req, res) => {
+  const { date, description, hours, animal, user, trainingLogVideo } = req.body;
+
+  if (!date) {
+    return res.status(400).json("Missing training date.");
+  }
+
+  if (!description || typeof description !== "string") {
+    return res.status(400).json({ message: "Invalid or missing description." });
+  }
+
+  if (!hours || typeof hours !== "number") {
+    return res
+      .status(400)
+      .json({ message: "Invalid or missing training hours." });
+  }
+
+  if (!animal || typeof animal !== "string") {
+    return res.status(400).json({ message: "Invalid or missing animal ID." });
+  }
+
+  if (!user || typeof user !== "string") {
+    return res.status(400).json({ message: "Invalid or missing user ID." });
+  }
+
+  if (trainingLogVideo !== undefined && typeof trainingLogVideo !== "string") {
+    return res.status(400).json({ message: "Invalid video URL." });
+  }
+
+  const dateObject = new Date(date);
+
+  try {
+    await addDoc(collection(db, "trainings"), {
+      date: dateObject,
+      description: description,
+      hours: hours,
+      animal: animal,
+      user: user,
+      trainingLogVideo: trainingLogVideo || null,
+    });
+    res.status(200).json("Animal Successfully Trained.");
+  } catch (error) {
+    console.error("ERROR: ", error);
+    res.status(500).json({ message: "Failed to train animal." });
   }
 });
 
