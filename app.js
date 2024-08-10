@@ -2,7 +2,7 @@ import express from "express";
 import dotenv, { parse } from "dotenv";
 import cors from "cors";
 import { db } from "./config/firebase.js";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc } from "firebase/firestore";
 import bcrypt from "bcrypt";
 
 dotenv.config();
@@ -132,6 +132,19 @@ app.post("/api/training", async (req, res) => {
   const dateObject = new Date(date);
 
   try {
+    const animalRef = doc(db, "animals", animal);
+    const animalDoc = await getDoc(animalRef); 
+
+    if (!animalDoc.exists()) {
+      return res.status(400).json({ message: "Animal doesn't exist." });
+    }
+
+    if (animalDoc.data().owner !== user) {
+      return res
+        .status(400)
+        .json({ message: "Animal doesn't belong to the specific user." });
+    }
+
     await addDoc(collection(db, "trainings"), {
       date: dateObject,
       description: description,
