@@ -196,7 +196,24 @@ app.get("/api/admin/animals", async (req, res) => {
     res.status(200).json(animals);
   } catch (error) {
     console.error("ERROR:", error);
-    res.status(500).json({ message: "Failed to fetch animals" });
+    res.status(500).json({ message: "Failed to fetch animals." });
+  }
+});
+
+app.get("/api/admin/trainings", async (req, res) => {
+  try {
+    const trainingsCollection = collection(db, "trainings");
+    const trainingDocs = await getDocs(trainingsCollection);
+
+    const trainings = trainingDocs.docs.map((doc) => ({
+      _id: doc.id,
+      ...doc.data(),
+    }));
+
+    res.status(200).json(trainings);
+  } catch (error) {
+    console.error("ERROR:", error);
+    res.status(500).json({ message: "Failed to fetch training logs." });
   }
 });
 
