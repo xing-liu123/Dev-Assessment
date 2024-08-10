@@ -2,7 +2,7 @@ import express from "express";
 import dotenv, { parse } from "dotenv";
 import cors from "cors";
 import { db } from "./config/firebase.js";
-import { collection, addDoc, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc, getDocs } from "firebase/firestore";
 import bcrypt from "bcrypt";
 
 dotenv.config();
@@ -133,7 +133,7 @@ app.post("/api/training", async (req, res) => {
 
   try {
     const animalRef = doc(db, "animals", animal);
-    const animalDoc = await getDoc(animalRef); 
+    const animalDoc = await getDoc(animalRef);
 
     if (!animalDoc.exists()) {
       return res.status(400).json({ message: "Animal doesn't exist." });
@@ -157,6 +157,29 @@ app.post("/api/training", async (req, res) => {
   } catch (error) {
     console.error("ERROR: ", error);
     res.status(500).json({ message: "Failed to train animal." });
+  }
+});
+
+app.get("/api/admin/users", async (req, res) => {
+  try {
+    const usersCollection = collection(db, "users");
+    const userDocs = await getDocs(usersCollection);
+
+    const users = userDocs.docs.map((doc) => {
+      const userData = doc.data();
+
+      const { password, ...otherData } = userData;
+
+      return {
+        _id: doc.id,
+        otherData,
+      };
+    });
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("ERROR", error);
+    res.status(500).json({ message: "Failed to fetch users." });
   }
 });
 
