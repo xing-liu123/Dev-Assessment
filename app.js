@@ -2,7 +2,18 @@ import express from "express";
 import dotenv, { parse } from "dotenv";
 import cors from "cors";
 import { db } from "./config/firebase.js";
-import { collection, addDoc, doc, getDoc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  documentId,
+  startAfter,
+} from "firebase/firestore";
 import bcrypt from "bcrypt";
 
 dotenv.config();
@@ -103,6 +114,7 @@ app.post("/api/animal", async (req, res) => {
 app.post("/api/training", async (req, res) => {
   const { date, description, hours, animal, user, trainingLogVideo } = req.body;
 
+  // Check if required fields present and validate types
   if (!date) {
     return res.status(400).json("Missing training date.");
   }
@@ -162,9 +174,26 @@ app.post("/api/training", async (req, res) => {
 
 app.get("/api/admin/users", async (req, res) => {
   try {
-    const usersCollection = collection(db, "users");
-    const userDocs = await getDocs(usersCollection);
+    const query_limit = parseInt(req.query.limit) || 10;
+    const startAfterId = req.query.startAfterId;
 
+    let queryRef = query(
+      collection(db, "users"),
+      orderBy(documentId()),
+      limit(query_limit)
+    );
+
+    // If startAfterId is provided, fetch the document with the corresponding ID and update the query to start after this document.
+    if (startAfterId) {
+      const startAfterDoc = await getDoc(doc(db, "users", startAfterId));
+      if (startAfterDoc.exists()) {
+        queryRef = query(queryRef, startAfter(startAfterDoc));
+      }
+    }
+
+    const userDocs = await getDocs(queryRef);
+
+    // Map the fetched user documents, exclude the password field from the user data, and return the remaining data along with the document ID.
     const users = userDocs.docs.map((doc) => {
       const userData = doc.data();
 
@@ -176,7 +205,10 @@ app.get("/api/admin/users", async (req, res) => {
       };
     });
 
-    res.status(200).json(users);
+    const lastVisible = userDocs.docs[userDocs.docs.length - 1];
+    const nextStartAfterId = lastVisible ? lastVisible.id : null;
+
+    res.status(200).json({ users, nextStartAfterId });
   } catch (error) {
     console.error("ERROR", error);
     res.status(500).json({ message: "Failed to fetch users." });
@@ -185,15 +217,35 @@ app.get("/api/admin/users", async (req, res) => {
 
 app.get("/api/admin/animals", async (req, res) => {
   try {
-    const animalsCollection = collection(db, "animals");
-    const animalDocs = await getDocs(animalsCollection);
+    const query_limit = parseInt(req.query.limit) || 10;
+    const startAfterId = req.query.startAfterId;
 
+    let queryRef = query(
+      collection(db, "animals"),
+      orderBy(documentId()),
+      limit(query_limit)
+    );
+
+    // If startAfterId is provided, fetch the document with the corresponding ID and update the query to start after this document.
+    if (startAfterId) {
+      const startAfterDoc = await getDoc(doc(db, "animals", startAfterId));
+      if (startAfterDoc.exists()) {
+        queryRef = query(queryRef, startAfter(startAfterDoc));
+      }
+    }
+
+    const animalDocs = await getDocs(queryRef);
+
+    // Map the fetched animal documents and return the data along with the document ID.
     const animals = animalDocs.docs.map((doc) => ({
       _id: doc.id,
       ...doc.data(),
     }));
 
-    res.status(200).json(animals);
+    const lastVisible = animalDocs.docs[animalDocs.docs.length - 1];
+    const nextStartAfterId = lastVisible ? lastVisible.id : null;
+
+    res.status(200).json({ animals, nextStartAfterId });
   } catch (error) {
     console.error("ERROR:", error);
     res.status(500).json({ message: "Failed to fetch animals." });
@@ -202,15 +254,36 @@ app.get("/api/admin/animals", async (req, res) => {
 
 app.get("/api/admin/trainings", async (req, res) => {
   try {
-    const trainingsCollection = collection(db, "trainings");
-    const trainingDocs = await getDocs(trainingsCollection);
+    const query_limit = parseInt(req.query.limit) || 10;
+    const startAfterId = req.query.startAfterId;
 
+    let queryRef = query(
+      collection(db, "trainings"),
+      orderBy(documentId()),
+      limit(query_limit)
+    );
+
+    // If startAfterId is provided, fetch the document with the corresponding ID and update the query to start after this document.
+    if (startAfterId) {
+      const startAfterDoc = await getDoc(doc(db, "trainings", startAfterId));
+
+      if (startAfterDoc.exists()) {
+        queryRef = query(queryRef, startAfter(startAfterDoc));
+      }
+    }
+
+    const trainingDocs = await getDocs(queryRef);
+
+    // Map the fetched training documents and return the data along with the document ID.
     const trainings = trainingDocs.docs.map((doc) => ({
       _id: doc.id,
       ...doc.data(),
     }));
 
-    res.status(200).json(trainings);
+    const lastVisible = trainingDocs.docs[trainingDocs.docs.length - 1];
+    const nextStartAfterId = lastVisible ? lastVisible.id : null;
+
+    res.status(200).json({ trainings, nextStartAfterId });
   } catch (error) {
     console.error("ERROR:", error);
     res.status(500).json({ message: "Failed to fetch training logs." });
