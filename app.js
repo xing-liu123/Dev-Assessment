@@ -13,6 +13,7 @@ import {
   limit,
   documentId,
   startAfter,
+  where,
 } from "firebase/firestore";
 import bcrypt from "bcrypt";
 
@@ -287,6 +288,35 @@ app.get("/api/admin/trainings", async (req, res) => {
   } catch (error) {
     console.error("ERROR:", error);
     res.status(500).json({ message: "Failed to fetch training logs." });
+  }
+});
+
+app.post("/api/user/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const usersRef = collection(db, "users");
+    const userQuery = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(userQuery);
+
+    // No matched email is found.
+    if (querySnapshot.empty) {
+      return res.status(403).json({ message: "Invalid Email." });
+    }
+
+    const userDoc = querySnapshot.docs[0];
+    const userData = userDoc.data();
+
+    const isPasswordValid = await bcrypt.compare(password, userData.password);
+
+    if (!isPasswordValid) {
+      return res.status(403).json({ message: "Incorrect Password." });
+    }
+
+    res.status(200).json({ message: "Login Successfully." });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ message: "Failed to login." });
   }
 });
 
