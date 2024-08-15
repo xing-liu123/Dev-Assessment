@@ -90,13 +90,12 @@ app.post("/api/animal", verifyToken, async (req, res) => {
       .json({ message: "Invalid or missing hours trained." });
   }
 
-
   const dateObject = new Date(dateOfBirth);
 
   if (profilePicture !== undefined && typeof profilePicture !== "string") {
     return res.status(400).json({ message: "Invalid profile picture URL." });
   }
-
+  
   try {
     await addDoc(collection(db, "animals"), {
       name: name,
@@ -338,7 +337,7 @@ app.post("/api/user/verify", async (req, res) => {
     }
 
     const payload = {
-      id: userData.id,
+      id: userDoc.id,
       email: userData.email,
       firstName: userData.firstName,
       lastName: userData.lastName,
