@@ -16,12 +16,15 @@ import {
   where,
 } from "firebase/firestore";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 dotenv.config();
 const app = express();
 const APP_PORT = 5000;
 app.use(cors({ origin: true }));
 app.use(express.json());
+
+const SECRET_KEY = process.env.JWT_SECRET || "thisisthekey";
 
 app.get("/", (req, res) => {
   res.json({ Hello: "World", Version: 2 });
@@ -73,8 +76,8 @@ app.post("/api/user", async (req, res) => {
   }
 });
 
-app.post("/api/animal", async (req, res) => {
-  const { name, hoursTrained, owner, dateOfBirth, profilePicture } = req.body;
+app.post("/api/animal", verifyToken, async (req, res) => {
+  const { name, hoursTrained, dateOfBirth, profilePicture } = req.body;
 
   // Check if required fields present and validate types
   if (!name || typeof name !== "string") {
@@ -87,9 +90,6 @@ app.post("/api/animal", async (req, res) => {
       .json({ message: "Invalid or missing hours trained." });
   }
 
-  if (!owner || typeof owner !== "string") {
-    return res.status(400).json({ message: "Invalid or missing owner ID." });
-  }
 
   const dateObject = new Date(dateOfBirth);
 
@@ -101,7 +101,7 @@ app.post("/api/animal", async (req, res) => {
     await addDoc(collection(db, "animals"), {
       name: name,
       hoursTrained: hoursTrained,
-      owner: owner,
+      owner: req.user.id,
       dateOfBirth: dateObject || null,
       profilePicture: profilePicture || null,
     });
@@ -112,8 +112,8 @@ app.post("/api/animal", async (req, res) => {
   }
 });
 
-app.post("/api/training", async (req, res) => {
-  const { date, description, hours, animal, user, trainingLogVideo } = req.body;
+app.post("/api/training", verifyToken, async (req, res) => {
+  const { date, description, hours, animal, trainingLogVideo } = req.body;
 
   // Check if required fields present and validate types
   if (!date) {
@@ -132,10 +132,6 @@ app.post("/api/training", async (req, res) => {
 
   if (!animal || typeof animal !== "string") {
     return res.status(400).json({ message: "Invalid or missing animal ID." });
-  }
-
-  if (!user || typeof user !== "string") {
-    return res.status(400).json({ message: "Invalid or missing user ID." });
   }
 
   if (trainingLogVideo !== undefined && typeof trainingLogVideo !== "string") {
@@ -163,7 +159,7 @@ app.post("/api/training", async (req, res) => {
       description: description,
       hours: hours,
       animal: animal,
-      user: user,
+      user: req.user.id,
       trainingLogVideo: trainingLogVideo || null,
     });
     res.status(200).json("Animal Successfully Trained.");
@@ -173,7 +169,7 @@ app.post("/api/training", async (req, res) => {
   }
 });
 
-app.get("/api/admin/users", async (req, res) => {
+app.get("/api/admin/users", verifyToken, async (req, res) => {
   try {
     const query_limit = parseInt(req.query.limit) || 10;
     const startAfterId = req.query.startAfterId;
@@ -216,7 +212,7 @@ app.get("/api/admin/users", async (req, res) => {
   }
 });
 
-app.get("/api/admin/animals", async (req, res) => {
+app.get("/api/admin/animals", verifyToken, async (req, res) => {
   try {
     const query_limit = parseInt(req.query.limit) || 10;
     const startAfterId = req.query.startAfterId;
@@ -253,7 +249,7 @@ app.get("/api/admin/animals", async (req, res) => {
   }
 });
 
-app.get("/api/admin/trainings", async (req, res) => {
+app.get("/api/admin/trainings", verifyToken, async (req, res) => {
   try {
     const query_limit = parseInt(req.query.limit) || 10;
     const startAfterId = req.query.startAfterId;
@@ -307,9 +303,9 @@ app.post("/api/user/login", async (req, res) => {
     const userDoc = querySnapshot.docs[0];
     const userData = userDoc.data();
 
-    const isPasswordValid = await bcrypt.compare(password, userData.password);
+    const isPasswordCorrect = await bcrypt.compare(password, userData.password);
 
-    if (!isPasswordValid) {
+    if (!isPasswordCorrect) {
       return res.status(403).json({ message: "Incorrect Password." });
     }
 
@@ -319,6 +315,60 @@ app.post("/api/user/login", async (req, res) => {
     res.status(500).json({ message: "Failed to login." });
   }
 });
+
+app.post("/api/user/verify", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const usersRef = collection(db, "users");
+    const userQuery = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(userQuery);
+
+    if (querySnapshot.empty) {
+      return res.status(403).json({ message: "Invalid Email." });
+    }
+
+    const userDoc = querySnapshot.docs[0];
+    const userData = userDoc.data();
+
+    const isPasswordCorrect = await bcrypt.compare(password, userData.password);
+
+    if (!isPasswordCorrect) {
+      return res.status(403).json({ message: "Incorrect password." });
+    }
+
+    const payload = {
+      id: userData.id,
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      profilePicture: userData.profilePicture,
+    };
+
+    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "1h" });
+    res.status(200).json({ message: "Login Successfully.", token });
+  } catch (error) {
+    console.error("ERROR:", error);
+    res.status(500).json({ message: "Failed to login." });
+  }
+});
+
+function verifyToken(req, res, next) {
+  const token = req.headers["authorization"];
+
+  if (!token) {
+    return res.status(403).json({ message: "No token is provided." });
+  }
+
+  // Assume client uses Bearer + <token>
+  try {
+    const decoded = jwt.verify(token.split(" ")[1], SECRET_KEY);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: "Failed to authenticate token." });
+  }
+}
 
 app.listen(APP_PORT, () => {
   console.log(`api listening at http://localhost:${APP_PORT}`);
