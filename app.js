@@ -1,7 +1,10 @@
 import express from "express";
 import dotenv, { parse } from "dotenv";
 import cors from "cors";
-import { db } from "./config/firebase.js";
+import multer from "multer";
+import { db, storage } from "./config/firebase.js";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 import {
   collection,
   addDoc,
@@ -14,6 +17,7 @@ import {
   documentId,
   startAfter,
   where,
+  updateDoc,
 } from "firebase/firestore";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -23,6 +27,8 @@ const app = express();
 const APP_PORT = 5000;
 app.use(cors({ origin: true }));
 app.use(express.json());
+
+const upload = multer({ memory: true });
 
 const SECRET_KEY = process.env.JWT_SECRET || "thisisthekey";
 
@@ -35,7 +41,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.post("/api/user", async (req, res) => {
-  const { firstName, lastName, email, password, profilePicture } = req.body;
+  const { firstName, lastName, email, password } = req.body;
 
   // Check if required fields present and validate types
   if (!firstName || typeof firstName !== "string") {
@@ -54,10 +60,6 @@ app.post("/api/user", async (req, res) => {
     return res.status(400).json({ message: "Invalid or missing password." });
   }
 
-  if (profilePicture !== undefined && typeof profilePicture !== "string") {
-    return res.status(400).json({ message: "Invalid profile picture URL." });
-  }
-
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -66,7 +68,6 @@ app.post("/api/user", async (req, res) => {
       lastName: lastName,
       email: email,
       password: hashedPassword,
-      profilePicture: profilePicture || null,
     });
 
     res.status(200).json({ message: "User Registered Successfully." });
@@ -77,7 +78,7 @@ app.post("/api/user", async (req, res) => {
 });
 
 app.post("/api/animal", verifyToken, async (req, res) => {
-  const { name, hoursTrained, dateOfBirth, profilePicture } = req.body;
+  const { name, hoursTrained, dateOfBirth } = req.body;
 
   // Check if required fields present and validate types
   if (!name || typeof name !== "string") {
@@ -92,17 +93,12 @@ app.post("/api/animal", verifyToken, async (req, res) => {
 
   const dateObject = new Date(dateOfBirth);
 
-  if (profilePicture !== undefined && typeof profilePicture !== "string") {
-    return res.status(400).json({ message: "Invalid profile picture URL." });
-  }
-  
   try {
     await addDoc(collection(db, "animals"), {
       name: name,
       hoursTrained: hoursTrained,
       owner: req.user.id,
       dateOfBirth: dateObject || null,
-      profilePicture: profilePicture || null,
     });
     res.status(200).json({ message: "Animal Added Successfully." });
   } catch (error) {
@@ -112,7 +108,7 @@ app.post("/api/animal", verifyToken, async (req, res) => {
 });
 
 app.post("/api/training", verifyToken, async (req, res) => {
-  const { date, description, hours, animal, trainingLogVideo } = req.body;
+  const { date, description, hours, animal } = req.body;
 
   // Check if required fields present and validate types
   if (!date) {
@@ -131,10 +127,6 @@ app.post("/api/training", verifyToken, async (req, res) => {
 
   if (!animal || typeof animal !== "string") {
     return res.status(400).json({ message: "Invalid or missing animal ID." });
-  }
-
-  if (trainingLogVideo !== undefined && typeof trainingLogVideo !== "string") {
-    return res.status(400).json({ message: "Invalid video URL." });
   }
 
   const dateObject = new Date(date);
@@ -159,7 +151,6 @@ app.post("/api/training", verifyToken, async (req, res) => {
       hours: hours,
       animal: animal,
       user: req.user.id,
-      trainingLogVideo: trainingLogVideo || null,
     });
     res.status(200).json("Animal Successfully Trained.");
   } catch (error) {
@@ -368,6 +359,65 @@ function verifyToken(req, res, next) {
     return res.status(403).json({ message: "Failed to authenticate token." });
   }
 }
+
+app.post(
+  "/api/file/upload",
+  verifyToken,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded." });
+      }
+
+      const { dataType, id } = req.body;
+
+      if (!dataType || !id) {
+        return res.status(400).json({ message: "Missing data type or id." });
+      }
+
+      let fieldToUpdate;
+      let collectionName;
+
+      switch (dataType) {
+        case "user":
+          fieldToUpdate = "profilePicture";
+          collectionName = "users";
+          break;
+        case "animal":
+          fieldToUpdate = "profilePicture";
+          collectionName = "users";
+          break;
+        case "training":
+          fieldToUpdate = "trainingLogVideo";
+          collectionName = "trainings";
+          break;
+        default:
+          return res.status(500).json({ message: "Invalid dataType." });
+      }
+
+      const fileRef = ref(
+        storage,
+        `${dataType}/${id}/${req.file.originalname}`
+      );
+
+      const snapshot = await uploadBytes(fileRef, req.file.buffer);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      const docRef = doc(db, collectionName, id);
+      await updateDoc(docRef, {
+        [fieldToUpdate]: downloadURL,
+      });
+
+      res
+        .status(200)
+        .json({ message: "File uploaded successfully.", fileUrl: downloadURL });
+    } catch (error) {
+      console.error("ERROR:", error);
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  }
+);
 
 app.listen(APP_PORT, () => {
   console.log(`api listening at http://localhost:${APP_PORT}`);
